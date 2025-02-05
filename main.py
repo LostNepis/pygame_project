@@ -2,6 +2,7 @@ import pygame
 import random
 import os
 
+
 pygame.init()
 
 size = width, height = 900, 900
@@ -9,6 +10,7 @@ cell_size = 60
 fps = 60
 font = pygame.font.Font(None, 36)
 
+#загрузка картинок
 down_image = pygame.transform.scale(pygame.image.load("pictures/down.png"), (cell_size, cell_size))
 up_image = pygame.transform.scale(pygame.image.load("pictures/up.png"), (cell_size, cell_size))
 left_image = pygame.transform.scale(pygame.image.load("pictures/left.png"), (cell_size, cell_size))
@@ -35,11 +37,13 @@ def load_data():
     else:
         high_score = 0
 
-def save_data():
+def save_data(score):
     with open("game_data.txt", 'w') as file:
-        file.write(str(high_score))
+        file.write(str(score))
+
 
 def generate_level(level):
+    """генерация уровня"""
     flowers = [((random.randint(0, (width // cell_size) - 1),
                  random.randint(0, (height // cell_size) - 1)),
                 random.choice(flower_images)) for _ in range(5 + level)]
@@ -47,6 +51,7 @@ def generate_level(level):
                    random.randint(0, (height // cell_size) - 1)),
                   pen_image) for _ in range(3 + level)]
     return flowers, obstacles
+
 
 def draw_game(player_pos, flowers, obstacles, player_image):
     """отрисовка уровня"""
@@ -63,16 +68,18 @@ def draw_game(player_pos, flowers, obstacles, player_image):
 
     screen.blit(player_image, (player_pos[0] * cell_size, player_pos[1] * cell_size))
 
-    text = font.render(f"Собрано цветов: {flowers_collected}", True, (0, 0, 0))
-    screen.blit(text, (320, 10))
-    text2 = font.render(f"Осталось времени: {time_left}", True, (0, 0, 0))
-    screen.blit(text2, (320, 50))
+    collected_text = font.render(f"Собрано цветов: {flowers_collected}", True, (0, 0, 0))
+    screen.blit(collected_text, (320, 10))
+    time_text = font.render(f"Осталось времени: {time_left}", True, (0, 0, 0))
+    screen.blit(time_text, (320, 50))
 
 def main_menu():
     """меню"""
     screen.fill((255, 255, 255))
     play_button = font.render("Играть", True, (0, 0, 0))
     quit_button = font.render("Выйти", True, (0, 0, 0))
+    time_text = font.render(f"Твой рекорд: {high_score}", True, (0, 0, 0))
+    screen.blit(time_text, (320, 50))
     screen.blit(play_button, (250, 200))
     screen.blit(quit_button, (250, 300))
     pygame.display.flip()
@@ -83,12 +90,13 @@ def main_menu():
                 quit()
             if event.type == pygame.MOUSEBUTTONDOWN:
                 x, y = event.pos
-                if 250 <= x <= 350 and 200 <= y <= 236:
+                if 250 <= x <= 350 and 200 <= y <= 236: # нажата кнопка играть
                     return True
-                if 250 <= x <= 350 and 300 <= y <= 336:
+                if 250 <= x <= 350 and 300 <= y <= 336: # нажата выйти
                     return False
 
 def game_loop():
+    """основной цикл"""
     global flowers_collected, high_score, current_level, time_left, player_image
     player_pos = [0, 0]
     flowers, obstacles = generate_level(current_level)
@@ -102,6 +110,8 @@ def game_loop():
             if event.type == pygame.QUIT:
                 pygame.quit()
                 quit()
+
+            # передвижение
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_UP and player_pos[1] > 0:
                     player_pos[1] -= 1
@@ -115,28 +125,30 @@ def game_loop():
                 if event.key == pygame.K_RIGHT and player_pos[0] < (width // cell_size) - 1:
                     player_pos[0] += 1
                     player_image = right_image
+
+            # убавление времени
             if event.type == timer_event:
                 time_left -= 1
                 if time_left <= 0:
                     return
 
         for flower in flowers:
+            # удаление цветка при касании с игроком
             if player_pos == list(flower[0]):
                 flowers.remove(flower)
                 flowers_collected += 1
                 break
 
-        if tuple(player_pos) in flowers:
-            flowers.remove(tuple(player_pos))
-            flowers_collected += 1
-
-        if tuple(player_pos) in obstacles:
+        # смерть при касании препятствия
+        if any(player_pos == list(obstacle[0]) for obstacle in obstacles):
             return
 
+        # переход на следущий уровень
         if not flowers:
             current_level += 1
             time_left += 10
             flowers, obstacles = generate_level(current_level)
+
 
         draw_game(player_pos, flowers, obstacles, player_image)
         pygame.display.flip()
@@ -146,10 +158,14 @@ load_data()
 while True:
     # обновление данных, при заходе в меню
     if main_menu():
+        if flowers_collected > high_score:
+            save_data(flowers_collected)
         flowers_collected = 0
         current_level = 1
         time_left = 15
         game_loop()
+
+
     else:
         pygame.quit()
         break
